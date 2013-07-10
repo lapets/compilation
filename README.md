@@ -1,4 +1,4 @@
 compilation
 ===========
 
-Haskell functionality for quickly assembling compilers.
+Haskell functionality for quickly assembling simple compilers.
