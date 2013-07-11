@@ -50,8 +50,8 @@ extract (Compile c) o = let (State _ _ _ _ r, _) = c (empState o) in r
 nothing :: Compile a ()
 nothing = Compile $ \s -> (s, ())
 
-fresh :: String -> Compile a String
-fresh p = Compile $ \(State f i m n s) -> (State (f+1) i m n s, show f)
+fresh :: Compile a String
+fresh = Compile $ \(State f i m n s) -> (State (f+1) i m n s, show f)
 
 freshWithPrefix :: String -> Compile a String
 freshWithPrefix p = Compile $ \(State f i m n s) -> (State (f+1) i m n s, p ++ show f)
@@ -81,8 +81,17 @@ indent = Compile $ \(State f i m n s) -> (State f ("  " ++ i) m n s, ())
 unindent :: Compile String ()
 unindent = Compile $ \(State f i m n s) -> (State f (drop (min (length i) 2) i) m n s, ())
 
+space :: Compile String ()
+space = Compile $ \(State f i m n s) -> (State f i m n (s ++ " "), ())
+
+spaces :: Int -> Compile String ()
+spaces k = Compile $ \(State f i m n s) -> (State f i m n (s ++ (take k $ repeat ' ')), ())
+
 newline :: Compile String ()
 newline = Compile $ \(State f i m n s) -> (State f i m n (s ++ "\n" ++ i), ())
+
+newlines :: Int -> Compile String ()
+newlines k = Compile $ \(State f i m n s) -> (State f i m n (s ++ (take k $ repeat '\n') ++ i), ())
 
 string :: String -> Compile String ()
 string s' = Compile $ \(State f i m n s) -> (State f i m n (s ++ s'), ())
