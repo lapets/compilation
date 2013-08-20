@@ -1,23 +1,28 @@
 ----------------------------------------------------------------
 --
--- Compilation
--- Monad and combinators for quickly assembling simple compilers.
+-- | Compilation
+--   Monad and combinators for quickly assembling simple
+--   compilers.
 --
--- Control/Compilation/Tree.hs
+-- @Control\/Compilation\/Trees.hs@
+--
 --   A generic compilation monad for quickly assembling simple
 --   compilers for target languages that are primarily
 --   expression trees.
 --
 
 ----------------------------------------------------------------
--- Haskell combinators for a simple compilation monad.
+--
 
-module Control.Compilation.Tree
+module Control.Compilation.Trees
   where
 
-----------------------------------------------------------------
--- Combinator definitions.
+import Control.Compilation
 
-cctDummy = ()
+----------------------------------------------------------------
+-- | State extension class definition, including combinators
+--   and convenient synonyms.
+
+() = ()
 
 --eof

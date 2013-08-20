@@ -1,16 +1,22 @@
 ----------------------------------------------------------------
 --
--- Compilation
--- Monad and combinators for quickly assembling simple compilers.
+-- | Compilation
+--   Monad and combinators for quickly assembling simple
+--   compilers.
 --
--- Control/Compilation/String.hs
---   A generic compilation monad for quickly assembling simple
---   compilers that emit an ASCII string representation of the
---   target language (well-suited for direct syntax translators).
+-- @Control\/Compilation\/String.hs@
+--
+--   A generic compilation monad and combinators for quickly
+--   assembling simple compilers that emit an ASCII string
+--   representation of the target language (well-suited for
+--   direct syntax translators).
 --
 
 ----------------------------------------------------------------
--- Haskell combinators for a simple compilation monad.
+--
+
+{-# LANGUAGE FlexibleInstances, TypeSynonymInstances #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Control.Compilation.String
   where
@@ -18,31 +24,69 @@ module Control.Compilation.String
 import Control.Compilation
 
 ----------------------------------------------------------------
--- Combinators and functions for compiling directly into a raw
--- ASCII string.
+-- | Type synonyms and class memberships.
 
-indent :: Compile String ()
-indent = Compile $ \(State f i m n s) -> (State f ("  " ++ i) m n s, ())
+type Indentation = Integer
+type StateExtensionString = (Indentation, String)
 
-unindent :: Compile String ()
-unindent = Compile $ \(State f i m n s) -> (State f (drop (min (length i) 2) i) m n s, ())
+instance StateExtension StateExtensionString where
+  initial = (0, "")
 
-space :: Compile String ()
-space = Compile $ \(State f i m n s) -> (State f i m n (s ++ " "), ())
+----------------------------------------------------------------
+-- | State extension class definition, including combinators
+--   and convenient synonyms for compiling directly into a raw
+--   ASCII string.
 
-spaces :: Int -> Compile String ()
-spaces k = Compile $ \(State f i m n s) -> (State f i m n (s ++ (take k $ repeat ' ')), ())
+class StateExtension a => HasString a where
+  project :: a -> StateExtensionString
+  inject :: StateExtensionString -> a -> a
+  
+  indent :: Compilation a ()
+  indent =
+    do state <- get
+       (i, s) <- return $ project state
+       set $ inject (i + 2, s) state
 
-newline :: Compile String ()
-newline = Compile $ \(State f i m n s) -> (State f i m n (s ++ "\n" ++ i), ())
+  unindent :: Compilation a ()
+  unindent =
+    do state <- get
+       (i, s) <- return $ project state
+       set $ inject (max 0 (i - 2), s) state
+   
+  space :: Compilation a ()
+  space =
+    do state <- get
+       (i, s) <- return $ project state
+       set $ inject (i, s ++ " ") state
 
-newlines :: Int -> Compile String ()
-newlines k = Compile $ \(State f i m n s) -> (State f i m n (s ++ (take k $ repeat '\n') ++ i), ())
+  spaces :: Int -> Compilation a ()
+  spaces k =
+    do state <- get
+       (i, s) <- return $ project state
+       set $ inject (i, s ++ (take k $ repeat ' ')) state
 
-string :: String -> Compile String ()
-string s' = Compile $ \(State f i m n s) -> (State f i m n (s ++ s'), ())
+  newline :: Compilation a ()
+  newline =
+    do state <- get
+       (i, s) <- return $ project state
+       set $ inject (i, s ++ "\n" ++ (take (fromInteger i) $ repeat ' ')) state
 
-raw :: String -> Compile String ()
-raw = string
+  newlines :: Int -> Compilation a ()
+  newlines k =
+    do state <- get
+       (i, s) <- return $ project state
+       set $ inject (i, s ++ (take k $ repeat '\n') ++ (take (fromInteger i) $ repeat ' ')) state
+
+  string :: String -> Compilation a ()
+  string s' =
+    do state <- get
+       (i, s) <- return $ project state
+       set $ inject (i, s ++ s') state
+
+  raw :: String -> Compilation a ()
+  raw = string
+  
+  compiled :: Compilation a b -> String
+  compiled c = let (_, s) :: StateExtensionString = project (extract c) in s
 
 --eof

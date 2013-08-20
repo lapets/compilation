@@ -1,80 +1,74 @@
 ----------------------------------------------------------------
 --
--- Compilation
--- Monads for quickly assembling simple compilers.
+-- | Compilation
+--   Monad and combinators for quickly assembling simple
+--   compilers.
 --
--- Control/Compilation.hs
+-- @Control\/Compilation.hs@
+--
 --   A generic compilation monad for quickly assembling simple
 --   compilers.
 --
 
 ----------------------------------------------------------------
--- Haskell implementation of a simple compilation monad.
+--
 
 module Control.Compilation
   where
 
 ----------------------------------------------------------------
--- Data types and class memberships.
+-- | Data types, class declarations, and class memberships.
 
-type FreshIndex = Integer
-type Indentation = String
-type ModuleName = String
-type NestingDepth = Integer
-type Error = String
+class StateExtension a where
+  initial :: a
 
-data State a = 
-  State 
-    FreshIndex 
-    Indentation 
-    (Maybe ModuleName) 
-    NestingDepth
-    a
+-- | State data structure wrapper.
+data State a =
+  State a
+  
+type Compile a b = Compilation a b
+data Compilation a b = 
+    Compilation (State a -> (State a, b))
+  | Error String
 
-empState :: a -> State a
-empState s = State 0 "" Nothing 0 s
+-- | Standard state monad definition.
+instance StateExtension a => Monad (Compilation a) where
+  return x = Compilation (\s -> (s, x))
+  (>>=) fc1 fc2 = 
+    case fc1 of
+      Compilation c1 ->
+        Compilation $
+          (\state ->
+            let (state', r) = c1 state
+                Compilation c2 = fc2 r
+            in c2 state'
+          )
+      Error err -> Error err
 
-data Compile a b = 
-  Compile (State a -> (State a, b))
+-- | Default memberships.
 
--- Standard state monad definition.
-instance Monad (Compile a) where
-  return x = Compile (\s -> (s, x))
-  (>>=) (Compile c1) fc2 = Compile $
-    (\state ->
-      let (state', r) = c1 state
-          Compile c2 = fc2 r
-      in c2 state'
-    )
+instance StateExtension () where
+  initial = ()
 
 ----------------------------------------------------------------
--- Generic combinators and functions.
+-- | Generic combinators and functions.
 
-extract :: Compile a () -> a -> a
-extract (Compile c) o = let (State _ _ _ _ r, _) = c (empState o) in r
+extract :: StateExtension a => Compilation a b -> a
+extract (Compilation c) = let (State e, _) = c (State initial) in e
 
-nothing :: Compile a ()
-nothing = Compile $ \s -> (s, ())
+extractFromState :: StateExtension a => a -> Compilation a b -> a
+extractFromState s (Compilation c) = let (State e, _) = c (State s) in e
 
-fresh :: Compile a String
-fresh = Compile $ \(State f i m n s) -> (State (f+1) i m n s, show f)
+nothing :: Compilation a ()
+nothing = Compilation $ \s -> (s, ())
 
-freshWithPrefix :: String -> Compile a String
-freshWithPrefix p = Compile $ \(State f i m n s) -> (State (f+1) i m n s, p ++ show f)
+get :: StateExtension a => Compilation a a
+get = Compilation $ \(State e) -> (State e, e)
 
-setModule :: String -> Compile a ()
-setModule m = Compile $ \(State f i _ n s) -> (State f i (Just m) n s, ())
+set :: StateExtension a => a -> Compilation a ()
+set e = Compilation $ \(State _) -> (State e, ())
 
-getModule :: Compile a (Maybe String)
-getModule = Compile $ \(State f i m n s) -> (State f i m n s, m)
-
-nest :: Compile a ()
-nest = Compile $ \(State f i m n s) -> (State f i m (n+1) s, ())
-
-unnest :: Compile a ()
-unnest = Compile $ \(State f i m n s) -> (State f i m (n-1) s, ())
-
-depth :: Compile a Integer
-depth = Compile $ \(State f i m n s) -> (State f i m n s, n)
+error :: String -> Compilation a ()
+error err = Error err
 
 --eof
